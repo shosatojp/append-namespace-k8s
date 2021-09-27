@@ -3,7 +3,6 @@ import argparse
 import sys
 from kubernetes import client, config
 import requests
-from pprint import pprint
 
 
 def get_resources(groupVersion, configuration: client.Configuration):
