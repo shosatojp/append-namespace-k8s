@@ -1,10 +1,15 @@
 # append-namespace
 
-Appends Namespace to Kubernetes yaml.
+Appends Namespace metadata to Kubernetes yaml.
 
 ```sh
 python3 appendns.py -f argocd.yaml --namespace my-argocd
 ```
+
+## Features
+
+- uses k8s api to get resource attributes
+- append namespace only for `namespaced` resource
 
 ## Example
 
