@@ -4,68 +4,56 @@ import sys
 from kubernetes import client, config
 import requests
 
+insecure = False
+configuration = client.Configuration()
 
-def get_resources(groupVersion, configuration: client.Configuration):
-    res = requests.get(f'{configuration.host}/apis/{groupVersion}', headers={
+
+def call_api(url):
+    res = requests.get(url, headers={
         'Authorization': configuration.api_key['authorization']
-    }, verify=False)
+    }, verify=not insecure)
 
     if res.status_code == 200:
         return res.json()
     else:
-        raise RuntimeError(f'Failed to get resources: {groupVersion}')
+        raise RuntimeError(f'Failed to get resources: {url}')
 
 
-def get_core_resources(version, configuration: client.Configuration):
-    res = requests.get(f'{configuration.host}/api/{version}', headers={
-        'Authorization': configuration.api_key['authorization']
-    }, verify=False)
-
-    if res.status_code == 200:
-        return res.json()
-    else:
-        raise RuntimeError(f'Failed to get core resources: {version}')
+def get_resources(groupVersion):
+    return call_api(f'{configuration.host}/apis/{groupVersion}')
 
 
-def get_coreapi(configuration: client.Configuration):
-    res = requests.get(configuration.host + '/api', headers={
-        'Authorization': configuration.api_key['authorization']
-    }, verify=False)
-    if res.status_code == 200:
-        return res.json()
-    else:
-        raise RuntimeError('Failed to get core api')
+def get_core_resources(version):
+    return call_api(f'{configuration.host}/api/{version}')
 
 
-def get_apis(configuration: client.Configuration):
-    res = requests.get(configuration.host + '/apis', headers={
-        'Authorization': configuration.api_key['authorization']
-    }, verify=False)
-    if res.status_code == 200:
-        return res.json()
-    else:
-        raise RuntimeError('Failed to get apis')
+def get_coreapi():
+    return call_api(configuration.host + '/api')
 
 
-def create_namespaced_map(configuration: client.Configuration):
+def get_apis():
+    return call_api(configuration.host + '/apis')
+
+
+def create_namespaced_map():
     apigroup_map = dict()
 
-    coreapi = get_coreapi(configuration)
+    coreapi = get_coreapi()
     versions = coreapi['versions']
     for version in versions:
         apigroup_map[version] = dict()
-        resources = get_core_resources(version, configuration)['resources']
+        resources = get_core_resources(version)['resources']
         for resource in resources:
             kind = resource['kind']
             namespaced = resource['namespaced']
             apigroup_map[version][kind] = namespaced
 
-    groups = get_apis(configuration)['groups']
+    groups = get_apis()['groups']
     for group in groups:
         for version in group['versions']:
             groupVersion = version['groupVersion']
             apigroup_map[groupVersion] = dict()
-            resources = get_resources(groupVersion, configuration)['resources']
+            resources = get_resources(groupVersion)['resources']
             for resource in resources:
                 kind = resource['kind']
                 namespaced = resource['namespaced']
@@ -88,12 +76,15 @@ def main():
     parser.add_argument('-f', '--file', required=True)
     parser.add_argument('-n', '--namespace', required=True)
     parser.add_argument('--overwrite', action='store_true', default=False)
+    parser.add_argument('--insecure', action='store_true', default=False)
     args = parser.parse_args()
+    global insecure
+    global configuration
+    insecure = args.insecure
 
     # Existent resources from api server
-    configuration = client.Configuration()
     config.load_kube_config(client_configuration=configuration)
-    namespaced_map = create_namespaced_map(configuration)
+    namespaced_map = create_namespaced_map()
 
     with open(args.file, 'rt', encoding='utf-8') as f:
         docs = list(yaml.load_all(f))
@@ -129,10 +120,12 @@ def main():
     if not contains_namespace:
         print('You may need to create Namespace resource.', file=sys.stderr)
 
+        print('---', file=sys.stderr)
         print('apiVersion: v1', file=sys.stderr)
         print('kind: Namespace', file=sys.stderr)
         print('metadata:', file=sys.stderr)
         print('  name: ' + args.namespace, file=sys.stderr)
+        print('---', file=sys.stderr)
 
     yaml.dump_all(docs, sys.stdout)
 
