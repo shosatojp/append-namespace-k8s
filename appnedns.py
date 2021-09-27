@@ -87,7 +87,7 @@ def main():
     namespaced_map = create_namespaced_map()
 
     with open(args.file, 'rt', encoding='utf-8') as f:
-        docs = list(yaml.load_all(f))
+        docs = list(yaml.load_all(f, Loader=yaml.FullLoader))
 
     # CRDs
     for doc in docs:
