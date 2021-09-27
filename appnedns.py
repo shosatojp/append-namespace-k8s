@@ -34,7 +34,7 @@ def get_coreapi(configuration: client.Configuration):
     if res.status_code == 200:
         return res.json()
     else:
-        raise RuntimeError('Failed to get apis')
+        raise RuntimeError('Failed to get core api')
 
 
 def get_apis(configuration: client.Configuration):
