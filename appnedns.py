@@ -3,6 +3,7 @@ import argparse
 import sys
 from kubernetes import client, config
 import requests
+from pprint import pprint
 
 
 def get_resources(groupVersion, configuration: client.Configuration):
@@ -14,6 +15,27 @@ def get_resources(groupVersion, configuration: client.Configuration):
         return res.json()
     else:
         raise RuntimeError(f'Failed to get resources: {groupVersion}')
+
+
+def get_core_resources(version, configuration: client.Configuration):
+    res = requests.get(f'{configuration.host}/api/{version}', headers={
+        'Authorization': configuration.api_key['authorization']
+    }, verify=False)
+
+    if res.status_code == 200:
+        return res.json()
+    else:
+        raise RuntimeError(f'Failed to get core resources: {version}')
+
+
+def get_coreapi(configuration: client.Configuration):
+    res = requests.get(configuration.host + '/api', headers={
+        'Authorization': configuration.api_key['authorization']
+    }, verify=False)
+    if res.status_code == 200:
+        return res.json()
+    else:
+        raise RuntimeError('Failed to get apis')
 
 
 def get_apis(configuration: client.Configuration):
@@ -28,6 +50,17 @@ def get_apis(configuration: client.Configuration):
 
 def create_namespaced_map(configuration: client.Configuration):
     apigroup_map = dict()
+
+    coreapi = get_coreapi(configuration)
+    versions = coreapi['versions']
+    for version in versions:
+        apigroup_map[version] = dict()
+        resources = get_core_resources(version, configuration)['resources']
+        for resource in resources:
+            kind = resource['kind']
+            namespaced = resource['namespaced']
+            apigroup_map[version][kind] = namespaced
+
     groups = get_apis(configuration)['groups']
     for group in groups:
         for version in group['versions']:
@@ -78,8 +111,6 @@ def main():
     # append namespace
     for doc in docs:
         apiVersion, kind = doc.get('apiVersion', None), doc.get('kind', None)
-        if '/' not in apiVersion:
-            apiVersion = f'apps/{apiVersion}'
         namespace = doc.get('metadata', {}).get('namespace', None)
 
         if namespace and namespace != args.namespace:
@@ -87,7 +118,7 @@ def main():
                 print('skip')
                 continue
 
-        if (not namespace or args.overwrite) and namespaced_map[apiVersion]:
+        if (not namespace or args.overwrite) and namespaced_map[apiVersion][kind]:
             doc['metadata'] = doc.get('metadata', {})
             doc['metadata']['namespace'] = args.namespace
 
