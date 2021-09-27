@@ -8,8 +8,9 @@ python3 appendns.py -f argocd.yaml --namespace my-argocd
 
 ## Features
 
-- uses k8s api to get resource attributes
 - append namespace only for `namespaced` resource
+- uses k8s api to get resource attributes
+- understand introduced CRDs with input yaml
 
 ## Example
 
