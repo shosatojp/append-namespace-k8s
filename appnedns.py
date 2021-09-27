@@ -121,6 +121,19 @@ def main():
             doc['metadata'] = doc.get('metadata', {})
             doc['metadata']['namespace'] = args.namespace
 
+    # check if docs contains namespace resource
+    contains_namespace = False
+    for doc in docs:
+        apiVersion, kind = doc.get('apiVersion', None), doc.get('kind', None)
+        contains_namespace = contains_namespace or kind == 'Namespace'
+    if not contains_namespace:
+        print('You may need to create Namespace resource.', file=sys.stderr)
+
+        print('apiVersion: v1', file=sys.stderr)
+        print('kind: Namespace', file=sys.stderr)
+        print('metadata:', file=sys.stderr)
+        print('  name: ' + args.namespace, file=sys.stderr)
+
     yaml.dump_all(docs, sys.stdout)
 
 
